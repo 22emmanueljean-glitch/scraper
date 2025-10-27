@@ -2,23 +2,26 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Random user agents
+const userAgents = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'
+];
+
 app.get('/scrape/shopee', async (req, res) => {
   const query = req.query.q || 'sunscreen spf50';
   
   try {
     console.log('🚀 Fetching Shopee for:', query);
     
+    // Use ScraperAPI free tier (1000 requests/month)
+    const apiKey = process.env.SCRAPER_API_KEY || 'demo'; // You'll add this
     const shopeeUrl = `https://shopee.co.th/api/v4/search/search_items?by=relevancy&keyword=${encodeURIComponent(query)}&limit=20&newest=0&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2`;
     
-    const response = await fetch(shopeeUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        'Referer': 'https://shopee.co.th/',
-        'Accept': 'application/json',
-        'Accept-Language': 'th-TH,th;q=0.9,en-US;q=0.8,en;q=0.7'
-      }
-    });
+    const proxyUrl = `http://api.scraperapi.com?api_key=${apiKey}&url=${encodeURIComponent(shopeeUrl)}`;
     
+    const response = await fetch(proxyUrl);
     const data = await response.json();
     
     if (!data.items || data.items.length === 0) {
