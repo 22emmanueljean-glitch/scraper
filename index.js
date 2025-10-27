@@ -23,7 +23,6 @@ app.get('/scrape/shopee', async (req, res) => {
     
     const page = await browser.newPage();
     
-    // Stealth mode
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
