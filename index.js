@@ -1,40 +1,55 @@
 const express = require('express');
+const puppeteer = require('puppeteer');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/scrape/shopee', async (req, res) => {
   const query = req.query.q || 'sunscreen spf50';
+  let browser;
   
   try {
-    console.log('🚀 Fetching Shopee via local proxy for:', query);
+    console.log('🚀 Starting browser for:', query);
     
-    const shopeeUrl = `https://shopee.co.th/api/v4/search/search_items?by=relevancy&keyword=${encodeURIComponent(query)}&limit=20&newest=0&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2`;
-    
-    const proxyUrl = `https://liliana-squshiest-palmately.ngrok-free.dev/proxy?url=${encodeURIComponent(shopeeUrl)}`;
-    
-    const response = await fetch(proxyUrl);
-    const data = await response.json();
-    
-    if (!data.items || data.items.length === 0) {
-      return res.json({
-        ok: false,
-        error: 'No results found',
-        query
-      });
-    }
-    
-    const products = data.items.map(item => {
-      const p = item.item_basic;
-      return {
-        name: p.name,
-        price: p.price / 100000,
-        currency: p.currency,
-        rating: p.item_rating?.rating_star || 0,
-        sold: p.historical_sold || 0,
-        url: `https://shopee.co.th/product/${p.shopid}/${p.itemid}`,
-        image: p.image ? `https://cf.shopee.co.th/file/${p.image}` : null
-      };
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-blink-features=AutomationControlled'
+      ]
     });
+    
+    const page = await browser.newPage();
+    
+    // Stealth mode
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
+    
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
+    
+    const url = `https://shopee.co.th/search?keyword=${encodeURIComponent(query)}`;
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+    
+    await page.waitForSelector('[data-sqe="item"]', { timeout: 10000 });
+    
+    const products = await page.evaluate(() => {
+      const items = document.querySelectorAll('[data-sqe="item"]');
+      return Array.from(items).slice(0, 20).map(item => {
+        const name = item.querySelector('[data-sqe="name"]')?.textContent || '';
+        const price = item.querySelector('[class*="price"]')?.textContent || '';
+        const link = item.querySelector('a')?.href || '';
+        const image = item.querySelector('img')?.src || '';
+        
+        return { name, price, link, image };
+      }).filter(p => p.name);
+    });
+    
+    await browser.close();
+    
+    console.log('✅ Scraped', products.length, 'products');
     
     return res.json({
       ok: true,
@@ -44,6 +59,7 @@ app.get('/scrape/shopee', async (req, res) => {
     });
     
   } catch (error) {
+    if (browser) await browser.close();
     console.error('❌ Error:', error);
     return res.status(500).json({
       ok: false,
@@ -53,9 +69,9 @@ app.get('/scrape/shopee', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.json({ status: 'Shopee API Scraper Running' });
+  res.json({ status: 'Shopee Puppeteer Scraper' });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Scraper running on port ${PORT}`);
+  console.log(`🚀 Scraper on port ${PORT}`);
 });
