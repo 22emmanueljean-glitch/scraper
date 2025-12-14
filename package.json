@@ -1,13 +1,8 @@
 {
-    "name": "scraper",
-    "version": "1.0.0",
-    "main": "index.js",
-    "scripts": {
-      "start": "node index.js"
-    },
-    "dependencies": {
-      "express": "^5.1.0",
-      "playwright-core": "^1.40.0",
-      "@playwright/browser-chromium": "^1.40.0"
-    }
+  "name": "scraper",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "scraper": "./index.js"
   }
+}
